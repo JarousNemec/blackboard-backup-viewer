@@ -116,6 +116,10 @@ jobs:
           if ($output -notmatch "nebyl nalezen") {
             throw "Expected error message about missing config in output."
           }
+          # Vynuluj $LASTEXITCODE z testovaného procesu, jinak runner step ohodnotí
+          # jako neúspěšný (i když naše logika prošla bez throw).
+          $global:LASTEXITCODE = 0
+          exit 0
 
       - name: Stage dist folder
         id: stage
