@@ -1,4 +1,4 @@
-name: Build Windows Executable
+name: Build & Release
 
 on:
   push:
@@ -9,21 +9,21 @@ permissions:
   contents: write  # tag + release creation
 
 jobs:
-  build:
-    runs-on: windows-latest
-    timeout-minutes: 60
-
+  # -----------------------------------------------------------------
+  # 1) Přečte verzi z pyproject.toml a ověří, že tag ještě neexistuje.
+  #    Hodnoty se propagují do build matrixu i do release jobu.
+  # -----------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      win_version: ${{ steps.version.outputs.win_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-tags: true
-
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
 
       - name: Read version from pyproject.toml
         id: version
@@ -35,7 +35,7 @@ jobs:
           }
           $ver = $Matches[1]
           $tag = "v$ver"
-          # Nuitka's --file-version requires 4-part: 0.1.0 -> 0.1.0.0
+          # Nuitka --file-version vyžaduje 4-part: 0.1.0 -> 0.1.0.0
           $parts = ($ver -replace '[^0-9.]', '').TrimEnd('.').Split('.') | Where-Object { $_ -ne '' }
           while ($parts.Count -lt 4) { $parts = @($parts) + '0' }
           $winVer = ($parts[0..3]) -join '.'
@@ -43,7 +43,7 @@ jobs:
           Write-Host "Tag: $tag"
           Write-Host "Win version (Nuitka): $winVer"
           "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "win_version=$winVer" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Verify tag does not already exist
@@ -57,6 +57,35 @@ jobs:
           }
           Write-Host "Tag $tag is free."
 
+  # -----------------------------------------------------------------
+  # 2) Build matrix — Windows + Linux. PowerShell Core (`pwsh`) běží
+  #    na obou runnerech, takže držíme jednu syntaxi přes celý job.
+  # -----------------------------------------------------------------
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: windows-x64
+          - os: ubuntu-latest
+            label: linux-x64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
       - name: Install package + build deps
         run: |
           python -m pip install --upgrade pip
@@ -67,11 +96,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cache/Nuitka
             ~\AppData\Local\Nuitka\Nuitka\Cache
             ~\AppData\Local\Nuitka\nuitka\Cache
-          key: nuitka-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml', 'launcher.py', 'bb_viewer/**/*.py', 'static/**/*') }}
+          key: nuitka-${{ matrix.label }}-py311-${{ hashFiles('pyproject.toml', 'launcher.py', 'bb_viewer/**/*.py', 'static/**/*') }}
           restore-keys: |
-            nuitka-${{ runner.os }}-py311-
+            nuitka-${{ matrix.label }}-py311-
 
       - name: Build standalone exe with Nuitka
         run: |
@@ -80,7 +110,7 @@ jobs:
             --assume-yes-for-downloads `
             --lto=no `
             --output-dir=dist `
-            --output-filename=bb-viewer.exe `
+            --output-filename=bb-viewer `
             --include-package=bb_viewer `
             --include-package=bs4 `
             --include-package=soupsieve `
@@ -93,20 +123,17 @@ jobs:
             --nofollow-import-to=numpy `
             --company-name="bb-viewer" `
             --product-name="bb-viewer" `
-            --file-version=${{ steps.version.outputs.win_version }} `
-            --product-version=${{ steps.version.outputs.win_version }} `
+            --file-version=${{ needs.prepare.outputs.win_version }} `
+            --product-version=${{ needs.prepare.outputs.win_version }} `
             --file-description="Blackboard Backup Viewer" `
             --copyright="MIT License" `
             --remove-output `
             launcher.py
 
-      - name: Smoke-test the built exe
-        shell: pwsh
+      - name: Smoke-test the built binary
         run: |
-          # Spustit s neexistujícím configem — má skončit s exit code 1
-          # a vypsat hlášku z ConfigError. Tím ověříme, že binárka
-          # vůbec nastartuje, importy fungují a běží i error path.
-          $output = & .\dist\launcher.dist\bb-viewer.exe nonexistent-config-for-smoke-test.toml 2>&1 | Out-String
+          $exe = if ($IsWindows) { ".\dist\launcher.dist\bb-viewer.exe" } else { "./dist/launcher.dist/bb-viewer" }
+          $output = & $exe nonexistent-config-for-smoke-test.toml 2>&1 | Out-String
           $exit = $LASTEXITCODE
           Write-Host "Exit code: $exit"
           Write-Host "Output:`n$output"
@@ -116,44 +143,65 @@ jobs:
           if ($output -notmatch "nebyl nalezen") {
             throw "Expected error message about missing config in output."
           }
-          # Vynuluj $LASTEXITCODE z testovaného procesu, jinak runner step ohodnotí
-          # jako neúspěšný (i když naše logika prošla bez throw).
           $global:LASTEXITCODE = 0
           exit 0
 
       - name: Stage dist folder
         id: stage
-        shell: pwsh
         run: |
-          $folder = "bb-viewer-windows-x64-${{ steps.version.outputs.tag }}"
-          Rename-Item -Path dist\launcher.dist -NewName $folder
+          $folder = "bb-viewer-${{ matrix.label }}-${{ needs.prepare.outputs.tag }}"
+          Rename-Item -Path dist/launcher.dist -NewName $folder
           "folder=$folder" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-      - name: Create zip archive
-        id: zip
-        shell: pwsh
+      - name: Create archive
+        id: archive
         run: |
           $folder = "${{ steps.stage.outputs.folder }}"
-          $zip = "dist\$folder.zip"
-          Compress-Archive -Path "dist\$folder" -DestinationPath $zip
-          Get-Item $zip | Format-List FullName, Length
-          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          if ($IsWindows) {
+            $archive = "dist/$folder.zip"
+            Compress-Archive -Path "dist/$folder" -DestinationPath $archive
+          } else {
+            # tar.gz na Linuxu zachovává executable bit a symlinky
+            $archive = "dist/$folder.tar.gz"
+            tar -czf $archive -C dist $folder
+          }
+          Get-Item $archive | Format-List FullName, Length
+          "archive=$archive" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.stage.outputs.folder }}
-          path: ${{ steps.zip.outputs.zip }}
+          path: ${{ steps.archive.outputs.archive }}
           retention-days: 14
           if-no-files-found: error
 
+  # -----------------------------------------------------------------
+  # 3) Vytvoří GitHub Release a přidá oba archivy.
+  #    Tag se vytvoří na release commitu.
+  # -----------------------------------------------------------------
+  release:
+    needs: [prepare, build]
+    if: github.ref == 'refs/heads/release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List archives
+        run: ls -lh dist/
+
       - name: Publish GitHub Release
-        if: github.ref == 'refs/heads/release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          files: ${{ steps.zip.outputs.zip }}
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
           generate_release_notes: true
           fail_on_unmatched_files: true
