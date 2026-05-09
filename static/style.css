@@ -1,0 +1,267 @@
+:root {
+    --bg: #f5f5f5;
+    --sidebar-bg: #ffffff;
+    --border: #d8d8d8;
+    --accent: #2b6cb0;
+    --accent-bg: #e8f0fa;
+    --text: #1a1a1a;
+    --muted: #6a6a6a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    font-size: 14px;
+}
+
+.app-shell {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+    width: 320px;
+    min-width: 220px;
+    max-width: 480px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    resize: horizontal;
+}
+
+.sidebar-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.sidebar-header h1 {
+    margin: 0 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 0;
+}
+
+.loading, .placeholder {
+    padding: 16px;
+    color: var(--muted);
+}
+
+.error {
+    padding: 12px 16px;
+    margin: 8px;
+    background: #fdecea;
+    color: #8a1c12;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+/* ---------- Courses list ---------- */
+
+.courses-list, .tree {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.courses-list li button,
+.tree button.tree-node {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 6px 16px;
+    cursor: pointer;
+    color: var(--text);
+    font: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.courses-list li button:hover,
+.tree button.tree-node:hover {
+    background: #eef2f7;
+}
+
+.courses-list li button.active,
+.tree button.tree-node.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-weight: 500;
+}
+
+/* ---------- Tree ---------- */
+
+.tree-children {
+    list-style: none;
+    margin: 0;
+    padding-left: 18px;
+}
+
+.tree li {
+    margin: 0;
+}
+
+.toggle {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    text-align: center;
+    line-height: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.toggle.empty { visibility: hidden; }
+
+.tree-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.has-index-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-left: 4px;
+    opacity: 0.6;
+}
+
+/* ---------- Back button ---------- */
+
+.back-btn {
+    background: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font: inherit;
+    color: var(--muted);
+}
+.back-btn:hover { background: #eef2f7; color: var(--text); }
+
+/* ---------- Main ---------- */
+
+.main {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-header {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    z-index: 1;
+}
+
+.breadcrumbs {
+    font-size: 13px;
+    color: var(--muted);
+    word-break: break-all;
+}
+.breadcrumbs span.crumb {
+    color: var(--text);
+}
+.breadcrumbs span.sep {
+    margin: 0 6px;
+    opacity: 0.6;
+}
+
+/* ---------- Page content ---------- */
+
+.page-content {
+    padding: 20px 28px;
+    max-width: 960px;
+    line-height: 1.55;
+}
+
+.page-content img,
+.page-content video,
+.page-content iframe {
+    max-width: 100%;
+    height: auto;
+}
+
+.page-content table {
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+.page-content table td,
+.page-content table th {
+    border: 1px solid #ccc;
+    padding: 4px 8px;
+}
+
+/* ---------- Files ---------- */
+
+.files-section {
+    padding: 8px 28px 28px;
+    max-width: 960px;
+}
+
+.files-section h2 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 16px 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.files-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.files-list li {
+    padding: 6px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+.files-list a {
+    color: var(--accent);
+    text-decoration: none;
+    word-break: break-all;
+}
+.files-list a:hover { text-decoration: underline; }
+
+.files-list .size {
+    color: var(--muted);
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.empty-page {
+    color: var(--muted);
+    font-style: italic;
+}

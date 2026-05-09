@@ -1,0 +1,37 @@
+# Lokální konfigurace (uživatelská, obsahuje cestu k datům)
+config.toml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Virtuální prostředí
+.venv/
+venv/
+env/
+
+# Caches a tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.python-version
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logy
+*.log

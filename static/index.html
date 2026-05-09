@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Blackboard Backup Viewer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar">
+        <header class="sidebar-header">
+            <h1>Blackboard Backup Viewer</h1>
+            <div id="back-button-wrap"></div>
+        </header>
+        <section id="sidebar-content" class="sidebar-content">
+            <div class="loading">Načítám kurzy…</div>
+        </section>
+    </aside>
+    <main class="main">
+        <header class="main-header">
+            <nav id="breadcrumbs" class="breadcrumbs"></nav>
+        </header>
+        <section id="page-content" class="page-content">
+            <div class="placeholder">Vyber kurz vlevo a v něm stránku ke zobrazení.</div>
+        </section>
+        <section id="files-section" class="files-section" hidden>
+            <h2>Soubory</h2>
+            <ul id="files-list" class="files-list"></ul>
+        </section>
+    </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

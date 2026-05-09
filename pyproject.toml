@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackboard-backup-viewer"
+version = "0.1.0"
+description = "Lokální viewer pro kurzy stažené nástrojem blackboard-grabber."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "beautifulsoup4>=4.12",
+]
+
+[project.scripts]
+bb-viewer = "bb_viewer.server:main"
+
+[tool.setuptools.packages.find]
+include = ["bb_viewer*"]

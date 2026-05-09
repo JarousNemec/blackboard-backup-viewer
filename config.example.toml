@@ -1,0 +1,23 @@
+# ============================================================
+# Blackboard Backup Viewer — konfigurace
+# ============================================================
+# 1) Zkopíruj tento soubor jako `config.toml`
+# 2) V sekci [paths] nastav cestu k adresáři se staženými kurzy
+#    (typicky `output/` z blackboard-grabberu).
+
+[paths]
+# Adresář, ve kterém jsou jednotlivé kurzy jako podsložky.
+# Cesta může být absolutní nebo relativní k tomuto config souboru.
+# Příklad (Windows):
+#   courses_dir = "C:\\Users\\jmeno\\AI_Projects\\blackboard-grabber\\output"
+courses_dir = "..\\blackboard-grabber\\output"
+
+[server]
+# Adresa, na které lokální server poslouchá. Nech 127.0.0.1 (jen lokálně).
+host = "127.0.0.1"
+
+# Port. 0 = OS přidělí volný port; viewer ho vypíše na konzoli.
+port = 0
+
+# Otevřít po startu prohlížeč automaticky?
+open_browser = true
