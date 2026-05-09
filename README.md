@@ -1,74 +1,60 @@
 # Blackboard Backup Viewer
 
-Lokální prohlížeč kurzů stažených nástrojem [`blackboard-grabber`](../blackboard-grabber).
+A local viewer for courses downloaded with [`blackboard-grabber`](../blackboard-grabber).
+Run a single command and browse your course content from disk in your web browser.
 
-UI je obyčejné HTML/CSS/JS běžící v prohlížeči, servírované malým Python HTTP serverem,
-který zároveň poskytuje JSON API a servíruje samotné soubory kurzu.
+## Install — binary (recommended)
 
-## Co viewer umí
+No Python or other tooling required. Just grab the prebuilt bundle.
 
-- V levém sloupci ukáže seznam kurzů z konfigurované složky.
-- Po kliknutí na kurz rozbalí strom složek (= „stránek" kurzu).
-- Po kliknutí na složku zobrazí vpravo:
-  - textový obsah stránky (`index.html` renderovaný inline),
-  - seznam souborů (PDF, .pkt, …) jako odkazy.
-- Klik na PDF → otevře se v novém tabu prohlížeče (PDF viewer prohlížeče).
-- Klik na ostatní soubory (.pkt apod.) → prohlížeč nabídne stažení.
+1. Open the [GitHub Releases](https://github.com/JarousNemec/blackboard-backup-viewer/releases)
+   page and download the archive for your platform:
+   - Windows: `bb-viewer-windows-x64-vX.Y.Z.zip`
+   - Linux: `bb-viewer-linux-x64-vX.Y.Z.tar.gz`
+2. Extract it anywhere on disk.
+3. In the folder next to the binary, copy `config.example.toml` to `config.toml`
+   and set `courses_dir` to the directory that contains your courses as subfolders
+   (typically `output/` from blackboard-grabber).
+4. Run the binary:
+   - Windows: double-click `bb-viewer.exe` (or run it from a terminal)
+   - Linux: `./bb-viewer`
 
-## Instalace
+Your browser opens at the URL printed to the console
+(e.g. `http://127.0.0.1:54321/`). Press `Ctrl+C` to stop the server.
 
-Vyžaduje Python 3.11+.
+## How to use it
+
+- **Left pane** — list of courses and the folder tree.
+- **Right pane** — clicking a folder shows the page text and a list of files.
+- **PDFs** open in a new tab; **other files** (`.pkt`, …) are offered as a download.
+
+## Run from Python (alternative, for developers)
+
+Use this path if you want to hack on the source or prefer not to download the
+binary. **Requires Python 3.11+.**
 
 ```powershell
-cd C:\Users\mortar\AI_Projects\blackboard-backup-viewer
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
-```
 
-## Konfigurace
-
-```powershell
-copy config.example.toml config.toml
-```
-
-V `config.toml` nastav `[paths] courses_dir` na cestu k adresáři kurzů
-(typicky `output/` z blackboard-grabberu).
-
-## Spuštění
-
-```powershell
+copy config.example.toml config.toml   # edit courses_dir
 python launcher.py
 ```
 
-Server vypíše URL (např. `http://127.0.0.1:54321/`) a otevře prohlížeč.
-Pro ukončení stiskni `Ctrl+C`.
+## Optional
 
-Volitelně lze předat vlastní cestu ke configu:
+Pass a custom config path (works for both the binary and the Python entry point):
 
 ```powershell
-python launcher.py C:\jine\config.toml
+bb-viewer.exe C:\other\config.toml
+python launcher.py C:\other\config.toml
 ```
 
-## Struktura projektu
+Other options (host, port, auto-open browser) are documented inline in
+`config.example.toml`.
 
-```
-blackboard-backup-viewer/
-├── launcher.py              # entry point
-├── config.example.toml      # šablona configu
-├── bb_viewer/
-│   ├── config.py            # načtení config.toml
-│   ├── paths.py             # bezpečné cesty + výpis stromu/souborů
-│   ├── html_rewrite.py      # parse index.html, přepis relativních URL
-│   └── server.py            # HTTP server + main()
-└── static/
-    ├── index.html
-    ├── app.js
-    └── style.css
-```
+## Security
 
-## Bezpečnost
-
-Server poslouchá defaultně jen na `127.0.0.1`. Všechny cesty z URL projdou
-`safe_resolve`, který odmítá `..` a kontroluje, že výsledná cesta zůstává
-v `courses_dir` (ochrana proti path traversal).
+The server listens on `127.0.0.1` only, and every URL path is checked against
+path traversal (`..` outside `courses_dir` is rejected).
