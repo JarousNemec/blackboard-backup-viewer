@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+
+_WIN_LONG_PATH_PREFIX = "\\\\?\\"
+
+
+def _enable_windows_long_paths(p: Path) -> Path:
+    """Na Windows přidá `\\?\` prefix, který bypassuje MAX_PATH (260) limit.
+    Bez prefixu by `iterdir()` nad hluboce zanořenými adresáři padalo na
+    `FileNotFoundError [WinError 3]`. Prefix se propisuje do všech odvozených
+    path operací (joinpath, resolve, is_relative_to)."""
+    if os.name != "nt":
+        return p
+    s = str(p)
+    if s.startswith(_WIN_LONG_PATH_PREFIX) or s.startswith("\\\\"):
+        return p
+    return Path(_WIN_LONG_PATH_PREFIX + s)
 
 
 class ConfigError(Exception):
@@ -41,6 +57,8 @@ def load_config(config_path: Path) -> Config:
         raise ConfigError(
             f"Adresář kurzů neexistuje nebo není složka: {courses_dir}"
         )
+
+    courses_dir = _enable_windows_long_paths(courses_dir)
 
     server = data.get("server") or {}
     host = str(server.get("host", "127.0.0.1"))

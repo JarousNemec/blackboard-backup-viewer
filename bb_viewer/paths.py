@@ -61,7 +61,11 @@ def list_tree(course_root: Path) -> dict:
     def walk(folder: Path, rel: str) -> dict:
         children: list[dict] = []
         has_index = (folder / INDEX_FILE).is_file()
-        for entry in sorted(folder.iterdir(), key=lambda p: p.name.lower()):
+        try:
+            entries = sorted(folder.iterdir(), key=lambda p: p.name.lower())
+        except OSError:
+            entries = []
+        for entry in entries:
             if not entry.is_dir():
                 continue
             if _is_hidden(entry.name) or entry.name == ASSETS_DIR_NAME:
@@ -92,14 +96,22 @@ def list_folder(folder: Path, course: str, rel_path: str) -> list[dict]:
         encoded_parts = "/".join(quote(p, safe="") for p in rel_path.split("/") if p)
         base_url = f"{base_url}/{encoded_parts}"
 
-    for entry in sorted(folder.iterdir(), key=lambda p: p.name.lower()):
+    try:
+        entries = sorted(folder.iterdir(), key=lambda p: p.name.lower())
+    except OSError:
+        return items
+    for entry in entries:
         if not entry.is_file():
             continue
         if entry.name == INDEX_FILE or _is_hidden(entry.name):
             continue
+        try:
+            size = entry.stat().st_size
+        except OSError:
+            continue
         items.append({
             "name": entry.name,
             "url": f"{base_url}/{quote(entry.name, safe='')}",
-            "size": entry.stat().st_size,
+            "size": size,
         })
     return items
