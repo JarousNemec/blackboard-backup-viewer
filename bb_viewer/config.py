@@ -40,8 +40,17 @@ def load_config(config_path: Path) -> Config:
             f"Zkopíruj config.example.toml na config.toml a vyplň cestu k adresáři kurzů."
         )
 
-    with config_path.open("rb") as f:
-        data = tomllib.load(f)
+    try:
+        with config_path.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ConfigError(
+            f"Chyba v {config_path.name}: {e}\n"
+            f"Tip pro Windows cesty: TOML interpretuje '\\' jako escape. Použij\n"
+            f"  - dvojité lomítko:   \"C:\\\\Users\\\\jmeno\\\\...\"\n"
+            f"  - lomítka vpřed:     \"C:/Users/jmeno/...\"\n"
+            f"  - literal string:    'C:\\Users\\jmeno\\...'  (jednoduché uvozovky)"
+        ) from e
 
     paths = data.get("paths") or {}
     raw_dir = paths.get("courses_dir")

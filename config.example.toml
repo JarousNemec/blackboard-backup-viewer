@@ -8,9 +8,13 @@
 [paths]
 # Adresář, ve kterém jsou jednotlivé kurzy jako podsložky.
 # Cesta může být absolutní nebo relativní k tomuto config souboru.
-# Příklad (Windows):
-#   courses_dir = "C:\\Users\\jmeno\\AI_Projects\\blackboard-grabber\\output"
-courses_dir = "..\\blackboard-grabber\\output"
+#
+# POZOR (Windows): TOML interpretuje '\' jako escape, proto použij JEDEN
+# z těchto formátů:
+#   - lomítka vpřed:     "C:/Users/jmeno/blackboard-grabber/output"      (nejjednodušší)
+#   - dvojité lomítko:   "C:\\Users\\jmeno\\blackboard-grabber\\output"
+#   - literal string:    'C:\Users\jmeno\blackboard-grabber\output'      (jednoduché uvozovky)
+courses_dir = "../blackboard-grabber/output"
 
 [server]
 # Adresa, na které lokální server poslouchá. Nech 127.0.0.1 (jen lokálně).
