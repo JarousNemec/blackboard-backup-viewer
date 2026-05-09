@@ -1,0 +1,155 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [release]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # tag + release creation
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Read version from pyproject.toml
+        id: version
+        shell: pwsh
+        run: |
+          $content = Get-Content pyproject.toml -Raw
+          if ($content -notmatch '(?m)^\s*version\s*=\s*"([^"]+)"') {
+            throw "Could not parse version from pyproject.toml"
+          }
+          $ver = $Matches[1]
+          $tag = "v$ver"
+          # Nuitka's --file-version requires 4-part: 0.1.0 -> 0.1.0.0
+          $parts = ($ver -replace '[^0-9.]', '').TrimEnd('.').Split('.') | Where-Object { $_ -ne '' }
+          while ($parts.Count -lt 4) { $parts = @($parts) + '0' }
+          $winVer = ($parts[0..3]) -join '.'
+          Write-Host "Version: $ver"
+          Write-Host "Tag: $tag"
+          Write-Host "Win version (Nuitka): $winVer"
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "win_version=$winVer" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Verify tag does not already exist
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $local = git tag -l $tag
+          $remote = git ls-remote --tags origin "refs/tags/$tag"
+          if ($local -or $remote) {
+            throw "Tag '$tag' already exists. Bump 'version' in pyproject.toml before pushing to release."
+          }
+          Write-Host "Tag $tag is free."
+
+      - name: Install package + build deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install nuitka ordered-set zstandard
+
+      - name: Cache Nuitka build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Nuitka\Nuitka\Cache
+            ~\AppData\Local\Nuitka\nuitka\Cache
+          key: nuitka-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml', 'launcher.py', 'bb_viewer/**/*.py', 'static/**/*') }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-py311-
+
+      - name: Build standalone exe with Nuitka
+        run: |
+          python -m nuitka `
+            --standalone `
+            --assume-yes-for-downloads `
+            --lto=no `
+            --output-dir=dist `
+            --output-filename=bb-viewer.exe `
+            --include-package=bb_viewer `
+            --include-package=bs4 `
+            --include-package=soupsieve `
+            --include-data-dir=static=static `
+            --include-data-files=config.example.toml=config.example.toml `
+            --nofollow-import-to=IPython `
+            --nofollow-import-to=lxml `
+            --nofollow-import-to=tkinter `
+            --nofollow-import-to=PIL `
+            --nofollow-import-to=numpy `
+            --company-name="bb-viewer" `
+            --product-name="bb-viewer" `
+            --file-version=${{ steps.version.outputs.win_version }} `
+            --product-version=${{ steps.version.outputs.win_version }} `
+            --file-description="Blackboard Backup Viewer" `
+            --copyright="MIT License" `
+            --remove-output `
+            launcher.py
+
+      - name: Smoke-test the built exe
+        shell: pwsh
+        run: |
+          # Spustit s neexistujícím configem — má skončit s exit code 1
+          # a vypsat hlášku z ConfigError. Tím ověříme, že binárka
+          # vůbec nastartuje, importy fungují a běží i error path.
+          $output = & .\dist\launcher.dist\bb-viewer.exe nonexistent-config-for-smoke-test.toml 2>&1 | Out-String
+          $exit = $LASTEXITCODE
+          Write-Host "Exit code: $exit"
+          Write-Host "Output:`n$output"
+          if ($exit -ne 1) {
+            throw "Expected exit code 1, got $exit"
+          }
+          if ($output -notmatch "nebyl nalezen") {
+            throw "Expected error message about missing config in output."
+          }
+
+      - name: Stage dist folder
+        id: stage
+        shell: pwsh
+        run: |
+          $folder = "bb-viewer-windows-x64-${{ steps.version.outputs.tag }}"
+          Rename-Item -Path dist\launcher.dist -NewName $folder
+          "folder=$folder" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Create zip archive
+        id: zip
+        shell: pwsh
+        run: |
+          $folder = "${{ steps.stage.outputs.folder }}"
+          $zip = "dist\$folder.zip"
+          Compress-Archive -Path "dist\$folder" -DestinationPath $zip
+          Get-Item $zip | Format-List FullName, Length
+          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.stage.outputs.folder }}
+          path: ${{ steps.zip.outputs.zip }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref == 'refs/heads/release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          files: ${{ steps.zip.outputs.zip }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true

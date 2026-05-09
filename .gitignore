@@ -1,4 +1,4 @@
-# Lokální konfigurace (uživatelská, obsahuje cestu k datům)
+p# Lokální konfigurace (uživatelská, obsahuje cestu k datům)
 config.toml
 
 # Python
